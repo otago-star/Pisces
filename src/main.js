@@ -6,6 +6,7 @@ import { World }          from './world.js';
 import { Player }         from './player.js';
 import { createUnderwaterPass } from './underwater.js';
 import { AudioManager }   from './audio.js';
+import { MobileControls } from './mobile-controls.js';
 
 // ─── Renderer ────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -32,10 +33,17 @@ const camera = new THREE.PerspectiveCamera(
 
 // ─── Audio ────────────────────────────────────────────────────────────────────
 const audio = new AudioManager();
+const isTouchDevice = navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches;
+const mobileControls = isTouchDevice ? new MobileControls() : null;
 
 // ─── World & Player ───────────────────────────────────────────────────────────
 const world  = new World(scene);
 const player = new Player(scene, camera, renderer.domElement, audio);
+player.setMobileControls(mobileControls);
+
+if (mobileControls) {
+  mobileControls.hide();
+}
 
 // ─── Post-processing ──────────────────────────────────────────────────────────
 const composer = new EffectComposer(renderer);
@@ -49,16 +57,33 @@ const crosshair  = document.getElementById('crosshair');
 const hud        = document.getElementById('hud');
 const depthMeter = document.getElementById('depth-meter');
 const depthVal   = document.getElementById('depth-val');
+const controlsHint = document.getElementById('controls-hint');
+const startBtn = document.getElementById('startBtn');
 
-document.getElementById('startBtn').addEventListener('click', () => {
+if (isTouchDevice) {
+  controlsHint.innerHTML = 'LEFT STICK &mdash; Swim &nbsp;&nbsp;|&nbsp;&nbsp; RIGHT PAD &mdash; Look<br>RISE / SINK &mdash; Vertical movement';
+  startBtn.textContent = 'TOUCH TO DIVE';
+  crosshair.style.display = 'none';
+}
+
+startBtn.addEventListener('click', () => {
+  if (isTouchDevice) {
+    player.activateMobile();
+    audio.start();
+    return;
+  }
+
   player.lock();
 });
 
 player.onLock(() => {
   overlay.style.display    = 'none';
-  crosshair.style.display  = 'block';
+  crosshair.style.display  = isTouchDevice ? 'none' : 'block';
   hud.style.display        = 'block';
   depthMeter.style.display = 'block';
+  if (mobileControls) {
+    mobileControls.show();
+  }
   audio.start();
 });
 
@@ -67,6 +92,9 @@ player.onUnlock(() => {
   crosshair.style.display  = 'none';
   hud.style.display        = 'none';
   depthMeter.style.display = 'none';
+  if (mobileControls) {
+    mobileControls.hide();
+  }
 });
 
 // ─── Resize ───────────────────────────────────────────────────────────────────
